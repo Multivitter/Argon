@@ -5,7 +5,7 @@ import math
 import requests
 import streamlit as st
 
-st.set_page_config(page_title="Argon — Amazon Intelligence", page_icon="🔬", layout="centered")
+st.set_page_config(page_title="Argon — Amazon Intelligence", page_icon="🔬", layout="wide")
 
 API_KEY = os.getenv("SCRAPINGDOG_API_KEY") or st.secrets.get("SCRAPINGDOG_API_KEY", "")
 PRODUCT_URL = "https://api.scrapingdog.com/amazon/product"
@@ -132,6 +132,15 @@ def inject_css(p):
     .info-card h4 {{ margin-top:0; color:var(--heading); }}
     .stButton>button {{ background:linear-gradient(90deg,#7b2ff7,#00d4ff); color:#ffffff; border:none;
         font-weight:700; border-radius:12px; padding:12px; }}
+    .block-container {{ max-width:980px; padding-top:2.2rem; }}
+    .product-title {{ font-size:1.45rem; font-weight:700; color:var(--text); margin:6px 0 2px; line-height:1.3; }}
+    .metric-card {{ background:var(--card-bg); border:1px solid var(--card-border); border-radius:12px;
+        padding:14px 16px; height:100%; }}
+    .metric-label {{ color:var(--muted); font-size:0.85rem; font-weight:600; margin-bottom:6px; }}
+    .metric-val {{ font-size:2rem; font-weight:800; line-height:1; }}
+    .metric-max {{ font-size:0.85rem; color:var(--muted); font-weight:600; margin-left:2px; }}
+    .metric-bar {{ margin-top:10px; height:6px; border-radius:4px; background:var(--card-border); overflow:hidden; }}
+    .metric-bar-fill {{ height:100%; border-radius:4px; transition:width .3s ease; }}
 </style>
 """, unsafe_allow_html=True)
 
@@ -284,10 +293,11 @@ if go and asin:
         e = OpportunityEngine(product, search)
         s = e.calculate()
 
-    st.subheader(e.title[:90])
+    st.markdown(f'<div class="product-title">{e.title[:90]}</div>', unsafe_allow_html=True)
     st.markdown(f"[{t['view_amazon']}](https://www.amazon.com/dp/{asin})")
     if e.category_top:
         st.caption(f"📂 {e.category_top}")
+    st.divider()
 
     # Opportunity card + підказка
     color = "#22c55e" if s["opportunity"] >= 70 else "#eab308" if s["opportunity"] >= 50 else "#ef4444"
@@ -298,12 +308,24 @@ if go and asin:
     </div>""", unsafe_allow_html=True)
     st.caption(f"ℹ️ {t['help_opp']}")
 
-    # 4 scores з підказками (наведи на ℹ️)
-    cols = st.columns(4)
-    cols[0].metric(t["demand"], s["demand"], help=t["help_demand"])
-    cols[1].metric(t["competition"], s["competition"], help=t["help_comp"])
-    cols[2].metric(t["price"], s["price"], help=t["help_price"])
-    cols[3].metric(t["market"], s["market"], help=t["help_market"])
+    # 4 scores — колір + міні-бар, щоб значення читалось миттєво
+    def _sc_color(v):
+        return "#22c55e" if v >= 70 else "#eab308" if v >= 50 else "#ef4444"
+    _metrics = [
+        (t["demand"], s["demand"], t["help_demand"]),
+        (t["competition"], s["competition"], t["help_comp"]),
+        (t["price"], s["price"], t["help_price"]),
+        (t["market"], s["market"], t["help_market"]),
+    ]
+    for _col, (_label, _val, _help) in zip(st.columns(4), _metrics):
+        _c = _sc_color(_val)
+        _w = max(0, min(int(_val), 100))
+        _col.markdown(f"""
+        <div class="metric-card" title="{_help}">
+            <div class="metric-label">{_label}</div>
+            <div class="metric-val" style="color:{_c}">{_val}<span class="metric-max">/100</span></div>
+            <div class="metric-bar"><div class="metric-bar-fill" style="width:{_w}%;background:{_c}"></div></div>
+        </div>""", unsafe_allow_html=True)
 
     st.write("")
 
