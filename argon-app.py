@@ -1,4 +1,4 @@
-# app.py — Argon MVP (Streamlit) — 3 мови + дизайн + підказки
+# app.py — Argon MVP (Streamlit) — 3 мови + дизайн + PRO інсайти
 import os
 import re
 import math
@@ -11,57 +11,55 @@ API_KEY = os.getenv("SCRAPINGDOG_API_KEY") or st.secrets.get("SCRAPINGDOG_API_KE
 PRODUCT_URL = "https://api.scrapingdog.com/amazon/product"
 SEARCH_URL = "https://api.scrapingdog.com/amazon/search"
 
-# ============ ПЕРЕКЛАДИ ============
+# ============ ПЕРЕКЛАДИ (додані нові ключі) ============
 T = {
     "UA": {
         "tagline": "Amazon Opportunity Intelligence — встав ASIN, отримай інсайт",
         "asin_label": "ASIN товару", "analyze": "🔍 Аналізувати",
-        "price_sales": "💰 Ціна та продажі", "reputation": "⭐ Репутація",
-        "listing": "🏷️ Лістинг", "opportunity": "Opportunity",
+        "price_sales": "💰 Економіка та Продажі", "reputation": "⭐ Репутація",
+        "listing": "🏷️ Лістинг та Логістика", "opportunity": "Opportunity",
         "demand": "🔥 Попит", "competition": "⚔️ Конкуренція", "price": "💵 Ціна", "market": "🏪 Ринок",
         "coupon": "Купон", "bought_mo": "Покупок/міс", "bsr": "BSR",
         "rating": "Рейтинг", "reviews": "відгуків", "one_star": "1★ відгуків",
-        "returned": "⚠️ Часто повертають товар",
+        "returned": "⚠️ Часто повертають",
         "brand": "Бренд", "seller": "Продавець", "photos": "Фото / Відео",
         "variants": "Варіантів", "aplus": "A+ контент", "organic": "Органіка",
         "yes": "✅ так", "no": "❌ ні", "na": "н/д", "err": "❌ Не вдалось. Перевір ASIN.",
         "spin": "Тягну дані з Amazon...", "enter": "Введи ASIN",
-        "footer": "ℹ️ Argon показує калібровані сигнали. Точне число units не показуємо — низька точність. Bucket і тренд — висока.",
+        "footer": "ℹ️ Argon показує калібровані сигнали. Точне число продажів оціночне.",
         "no_key": "⚠️ Не знайдено API ключ. Додай SCRAPINGDOG_API_KEY у Secrets.",
-        "help_opp": "Підсумкова оцінка можливості зайти в товар/нішу (0-100). Враховує попит, ринок, ціну, конкуренцію.",
-        "help_demand": "Чи є попит на товар. Рахується з реальних покупок/міс та BSR.",
-        "help_comp": "Наскільки важко зайти. Більше відгуків у конкурента = важче (нижчий бал).",
-        "help_price": "Цінова привабливість. Дорожчий товар = вища потенційна маржа.",
-        "help_market": "Сила ринку в цілому — чи є тут гроші взагалі (продажі + BSR + рейтинг).",
+        "help_opp": "Підсумкова оцінка можливості зайти в товар (0-100).",
         "view_amazon": "🔗 Відкрити на Amazon",
+        "var_alert": "⚠️ **Варіативний ад!** Знайдено багато варіацій. Продажі розмиті між ними.",
+        "unicorn": "🦄 **Ультра-топ!** Товар входить у ТОП-100 головної категорії.",
+        "net_price": "Реальна ціна", "est_rev": "Оцінка виручки", "dim": "Габарити",
     },
     "RU": {
         "tagline": "Amazon Opportunity Intelligence — вставь ASIN, получи инсайт",
         "asin_label": "ASIN товара", "analyze": "🔍 Анализировать",
-        "price_sales": "💰 Цена и продажи", "reputation": "⭐ Репутация",
-        "listing": "🏷️ Листинг", "opportunity": "Opportunity",
+        "price_sales": "💰 Экономика и Продажи", "reputation": "⭐ Репутация",
+        "listing": "🏷️ Листинг и Логистика", "opportunity": "Opportunity",
         "demand": "🔥 Спрос", "competition": "⚔️ Конкуренция", "price": "💵 Цена", "market": "🏪 Рынок",
         "coupon": "Купон", "bought_mo": "Покупок/мес", "bsr": "BSR",
         "rating": "Рейтинг", "reviews": "отзывов", "one_star": "1★ отзывов",
-        "returned": "⚠️ Часто возвращают товар",
+        "returned": "⚠️ Часто возвращают",
         "brand": "Бренд", "seller": "Продавец", "photos": "Фото / Видео",
         "variants": "Вариантов", "aplus": "A+ контент", "organic": "Органика",
         "yes": "✅ да", "no": "❌ нет", "na": "н/д", "err": "❌ Не удалось. Проверь ASIN.",
         "spin": "Тяну данные с Amazon...", "enter": "Введи ASIN",
-        "footer": "ℹ️ Argon показывает калиброванные сигналы. Точное число units не показываем — низкая точность. Bucket и тренд — высокая.",
+        "footer": "ℹ️ Argon показывает калиброванные сигналы. Точное число продаж оценочное.",
         "no_key": "⚠️ Не найден API ключ. Добавь SCRAPINGDOG_API_KEY в Secrets.",
-        "help_opp": "Итоговая оценка возможности зайти в товар/нишу (0-100). Учитывает спрос, рынок, цену, конкуренцию.",
-        "help_demand": "Есть ли спрос на товар. Считается из реальных покупок/мес и BSR.",
-        "help_comp": "Насколько сложно зайти. Больше отзывов у конкурента = сложнее (ниже балл).",
-        "help_price": "Ценовая привлекательность. Дороже товар = выше потенциальная маржа.",
-        "help_market": "Сила рынка в целом — есть ли тут деньги вообще (продажи + BSR + рейтинг).",
+        "help_opp": "Итоговая оценка возможности зайти в товар (0-100).",
         "view_amazon": "🔗 Открыть на Amazon",
+        "var_alert": "⚠️ **Вариативный ад!** Найдено много вариаций. Продажи размыты между ними.",
+        "unicorn": "🦄 **Ультра-топ!** Товар входит в ТОП-100 главной категории.",
+        "net_price": "Реальная цена", "est_rev": "Оценка выручки", "dim": "Габариты",
     },
     "EN": {
         "tagline": "Amazon Opportunity Intelligence — paste ASIN, get insight",
         "asin_label": "Product ASIN", "analyze": "🔍 Analyze",
-        "price_sales": "💰 Price & Sales", "reputation": "⭐ Reputation",
-        "listing": "🏷️ Listing", "opportunity": "Opportunity",
+        "price_sales": "💰 Economics & Sales", "reputation": "⭐ Reputation",
+        "listing": "🏷️ Listing & Logistics", "opportunity": "Opportunity",
         "demand": "🔥 Demand", "competition": "⚔️ Competition", "price": "💵 Price", "market": "🏪 Market",
         "coupon": "Coupon", "bought_mo": "Bought/mo", "bsr": "BSR",
         "rating": "Rating", "reviews": "reviews", "one_star": "1★ reviews",
@@ -70,14 +68,13 @@ T = {
         "variants": "Variants", "aplus": "A+ content", "organic": "Organic rank",
         "yes": "✅ yes", "no": "❌ no", "na": "n/a", "err": "❌ Failed. Check ASIN.",
         "spin": "Fetching Amazon data...", "enter": "Enter ASIN",
-        "footer": "ℹ️ Argon shows calibrated signals. Exact units not shown — low accuracy. Bucket & trend — high accuracy.",
+        "footer": "ℹ️ Argon shows calibrated signals. Exact sales numbers are estimates.",
         "no_key": "⚠️ API key not found. Add SCRAPINGDOG_API_KEY to Secrets.",
-        "help_opp": "Final opportunity score to enter the product/niche (0-100). Combines demand, market, price, competition.",
-        "help_demand": "Is there demand. Calculated from real monthly purchases and BSR.",
-        "help_comp": "How hard to enter. More competitor reviews = harder (lower score).",
-        "help_price": "Price attractiveness. Higher price = higher potential margin.",
-        "help_market": "Overall market strength — is there money here at all (sales + BSR + rating).",
+        "help_opp": "Final opportunity score to enter the product (0-100).",
         "view_amazon": "🔗 View on Amazon",
+        "var_alert": "⚠️ **Variation Hell!** Many variants found. Sales are diluted.",
+        "unicorn": "🦄 **Unicorn!** Product is in the TOP 100 of its main category.",
+        "net_price": "Net Price", "est_rev": "Est. Revenue", "dim": "Dimensions",
     },
 }
 
@@ -97,7 +94,6 @@ PALETTES = {
     },
 }
 
-
 def inject_css(p):
     st.markdown(f"""
 <style>
@@ -108,7 +104,6 @@ def inject_css(p):
         --heading:{p['heading']}; --input-bg:{p['input_bg']};
         background:{p['bg']}; color:var(--text);
     }}
-    /* нативні віджети Streamlit — читабельний колір тексту в обох темах */
     .stApp [data-testid="stMarkdownContainer"],
     .stApp h1,.stApp h2,.stApp h3,.stApp h4,.stApp h5,
     .stApp p,.stApp li,.stApp label,
@@ -144,18 +139,15 @@ def inject_css(p):
 </style>
 """, unsafe_allow_html=True)
 
-
 def parse_number(value):
     if value is None: return 0.0
     m = re.search(r"\d[\d,]*\.?\d*", str(value).replace(",", ""))
     return float(m.group()) if m else 0.0
 
-
 @st.cache_data(ttl=3600)
 def get_product(asin):
     r = requests.get(PRODUCT_URL, params={"api_key": API_KEY, "domain": "com", "asin": asin, "country": "us"}, timeout=60)
     return r.json() if r.status_code == 200 else None
-
 
 @st.cache_data(ttl=3600)
 def get_search(asin):
@@ -167,13 +159,16 @@ def get_search(asin):
         return results[0] if results else {}
     return {}
 
-
 class OpportunityEngine:
     def __init__(self, product, search=None):
         self.product = product
         self.search = search or {}
         self.price = self._get_price()
         self.old_price = self._get_old_price()
+        self.has_coupon = bool(product.get("is_coupon_exists"))
+        self.coupon_text = (product.get("coupons") or [{}])[0].get("coupon_text", "")
+        self.net_price = self._get_net_price() # Реальная цена со скидкой
+        
         self.rating = float(product.get("average_rating") or 0)
         self.reviews = int(parse_number(product.get("total_reviews")))
         self.frequently_returned = bool(product.get("is_frequently_returned"))
@@ -186,14 +181,21 @@ class OpportunityEngine:
         self.category_top = self.category.split("›")[0].strip() if self.category else ""
         self.bsr = self._get_bsr()
         self.bsr_category = self._get_bsr_category()
+        
+        # PRO Фичи
+        self.is_unicorn = (self.bsr > 0 and self.bsr <= 100) # Топ 100 в главной категории
+        self.dimensions = self._get_dimensions() # Габариты
+        
         self.bought_text = str(product.get("number_of_people_bought") or self.search.get("number_of_people_bought") or "")
         self.monthly_bought = self._parse_bought()
+        self.est_revenue = self.monthly_bought * self.net_price # Расчет выручки
+        
         self.num_images = len(product.get("images", []))
         self.num_videos = int(product.get("number_of_videos") or 0)
         self.organic_pos = self.search.get("organic_position", 0)
-        self.has_coupon = bool(product.get("is_coupon_exists"))
-        self.coupon_text = (product.get("coupons") or [{}])[0].get("coupon_text", "")
         self.variants = len(product.get("customization_options", {}).get("size", []))
+        self.is_variation_hell = self.variants >= 5 # Детектор проблемных вариаций
+        
         self.one_star_pct = self._one_star()
         self.title = str(product.get("title", "N/A"))
 
@@ -211,6 +213,29 @@ class OpportunityEngine:
         if p > 0: return round(p, 2)
         if self.search.get("extracted_old_price"): return round(float(self.search["extracted_old_price"]), 2)
         return 0.0
+
+    def _get_net_price(self):
+        """Парсинг купонов для расчета реальной цены"""
+        if not self.has_coupon or not self.coupon_text:
+            return self.price
+        txt = self.coupon_text.lower()
+        # Ищем процент (e.g. "Up to 20% off")
+        m_pct = re.search(r"(\d+)%\s*off", txt)
+        if m_pct:
+            pct = float(m_pct.group(1))
+            return round(self.price * (1 - pct/100), 2)
+        # Ищем фикс сумму (e.g. "Save $5.00")
+        m_dol = re.search(r"\$(\d+(?:\.\d+)?)\s*off|save\s*\$(\d+(?:\.\d+)?)", txt)
+        if m_dol:
+            dol = float(m_dol.group(1) or m_dol.group(2))
+            return round(max(0, self.price - dol), 2)
+        return self.price
+
+    def _get_dimensions(self):
+        info = self.product.get("product_information", {})
+        for key in ["Item Dimensions L x W x H", "Item Dimensions L x W", "Package Dimensions", "Product Dimensions"]:
+            if key in info and info[key]: return str(info[key])
+        return ""
 
     def _get_bsr(self):
         txt = self.product.get("product_information", {}).get("Best Sellers Rank") or ""
@@ -261,8 +286,8 @@ class OpportunityEngine:
         opp = round(demand * 0.4 + market * 0.3 + price * 0.2 + competition * 0.1)
         if self.frequently_returned: opp = round(opp * 0.7)
         if self.one_star_pct >= 10: opp = round(opp * 0.85)
+        if self.is_variation_hell: opp = round(opp * 0.9) # Небольшой штраф за сложную нишу
         return {"demand": demand, "competition": competition, "price": price, "market": market, "opportunity": opp}
-
 
 # ============ UI ============
 col_t, col_th, col_l = st.columns([3, 1, 1])
@@ -293,13 +318,19 @@ if go and asin:
         e = OpportunityEngine(product, search)
         s = e.calculate()
 
-    st.markdown(f'<div class="product-title">{e.title[:90]}</div>', unsafe_allow_html=True)
+    st.markdown(f'<div class="product-title">{e.title[:120]}...</div>', unsafe_allow_html=True)
     st.markdown(f"[{t['view_amazon']}](https://www.amazon.com/dp/{asin})")
     if e.category_top:
         st.caption(f"📂 {e.category_top}")
     st.divider()
 
-    # Opportunity card + підказка
+    # PRO Alerts
+    if e.is_unicorn:
+        st.success(t["unicorn"], icon="🦄")
+    if e.is_variation_hell:
+        st.warning(t["var_alert"], icon="⚠️")
+
+    # Opportunity card
     color = "#22c55e" if s["opportunity"] >= 70 else "#eab308" if s["opportunity"] >= 50 else "#ef4444"
     st.markdown(f"""
     <div class="opp-card">
@@ -308,20 +339,21 @@ if go and asin:
     </div>""", unsafe_allow_html=True)
     st.caption(f"ℹ️ {t['help_opp']}")
 
-    # 4 scores — колір + міні-бар, щоб значення читалось миттєво
+    # 4 scores
     def _sc_color(v):
         return "#22c55e" if v >= 70 else "#eab308" if v >= 50 else "#ef4444"
     _metrics = [
-        (t["demand"], s["demand"], t["help_demand"]),
-        (t["competition"], s["competition"], t["help_comp"]),
-        (t["price"], s["price"], t["help_price"]),
-        (t["market"], s["market"], t["help_market"]),
+        (t["demand"], s["demand"]),
+        (t["competition"], s["competition"]),
+        (t["price"], s["price"]),
+        (t["market"], s["market"]),
     ]
-    for _col, (_label, _val, _help) in zip(st.columns(4), _metrics):
+    cols = st.columns(4)
+    for _col, (_label, _val) in zip(cols, _metrics):
         _c = _sc_color(_val)
         _w = max(0, min(int(_val), 100))
         _col.markdown(f"""
-        <div class="metric-card" title="{_help}">
+        <div class="metric-card">
             <div class="metric-label">{_label}</div>
             <div class="metric-val" style="color:{_c}">{_val}<span class="metric-max">/100</span></div>
             <div class="metric-bar"><div class="metric-bar-fill" style="width:{_w}%;background:{_c}"></div></div>
@@ -329,31 +361,45 @@ if go and asin:
 
     st.write("")
 
-    # Price & Reputation
+    # Price & Sales + Reputation
     ca, cb = st.columns(2)
     with ca:
-        price_html = f"<h4>{t['price_sales']}</h4><div style='font-size:1.6rem;font-weight:800;color:var(--text);'>${e.price}</div>"
-        if e.old_price > 0:
+        price_html = f"<h4>{t['price_sales']}</h4>"
+        
+        # PRO: Показываем реальную цену, если есть купон
+        if e.net_price < e.price:
+            price_html += f"<div style='font-size:1.6rem;font-weight:800;color:var(--text);'>${e.net_price} <span style='font-size:1rem;color:var(--muted);text-decoration:line-through;'>${e.price}</span></div>"
+            price_html += f"<div style='color:#f0a;font-weight:600;'>🎟️ {t['coupon']}: {e.coupon_text}</div>"
+        else:
+            price_html += f"<div style='font-size:1.6rem;font-weight:800;color:var(--text);'>${e.price}</div>"
+            
+        if e.old_price > e.price:
             disc = round((1 - e.price / e.old_price) * 100)
             price_html += f"<div style='color:var(--muted);'><span style='text-decoration:line-through;'>${e.old_price}</span> <span style='color:#22c55e;'>-{disc}%</span></div>"
-        if e.has_coupon:
-            price_html += f"<div style='color:#f0a;margin-top:8px;'>🎟️ {t['coupon']}: {e.coupon_text}</div>"
-        price_html += f"<div style='margin-top:8px;'>📦 {t['bought_mo']}: <b>{e.bought_text or t['na']}</b></div>"
+            
+        price_html += f"<div style='margin-top:12px;font-size:1.1rem;'>📦 {t['bought_mo']}: <b>{e.bought_text or t['na']}</b></div>"
+        
+        # PRO: Оценка выручки
+        if e.est_revenue > 0:
+            price_html += f"<div style='color:#22c55e;font-weight:700;margin-top:4px;'>💸 {t['est_rev']}: ~${e.est_revenue:,.0f}</div>"
+            
         if e.bsr:
-            price_html += f"<div>🏆 {t['bsr']}: <b>#{e.bsr}</b> · {e.bsr_category}</div>"
+            price_html += f"<div style='margin-top:8px;'>🏆 {t['bsr']}: <b>#{e.bsr:,}</b> · {e.bsr_category}</div>"
+            
         st.markdown(f'<div class="info-card">{price_html}</div>', unsafe_allow_html=True)
+        
     with cb:
         rep_html = f"<h4>{t['reputation']}</h4>"
         rep_html += f"<div style='font-size:1.6rem;font-weight:800;color:var(--text);'>{e.rating}/5</div>"
         rep_html += f"<div style='color:var(--muted);'>{e.reviews:,} {t['reviews']}</div>"
-        rep_html += f"<div style='margin-top:8px;'>{t['one_star']}: <b>{e.one_star_pct}%</b></div>"
+        rep_html += f"<div style='margin-top:12px;'>{t['one_star']}: <b>{e.one_star_pct}%</b></div>"
         if e.frequently_returned:
-            rep_html += f"<div style='color:#ef4444;margin-top:8px;'>{t['returned']}</div>"
+            rep_html += f"<div style='color:#ef4444;font-weight:bold;margin-top:8px;'>{t['returned']}</div>"
         st.markdown(f'<div class="info-card">{rep_html}</div>', unsafe_allow_html=True)
 
     st.write("")
 
-    # Listing
+    # Listing & Logistics
     list_html = f"<h4>{t['listing']}</h4><div style='display:flex;flex-wrap:wrap;gap:24px;'>"
     items = [
         (t["brand"], e.brand or t["na"]),
@@ -362,6 +408,7 @@ if go and asin:
         (t["variants"], str(e.variants)),
         (t["aplus"], t["yes"] if e.has_aplus else t["no"]),
         (t["organic"], f"#{e.organic_pos or t['na']}"),
+        (t["dim"], e.dimensions or t["na"]), # PRO: Габариты
     ]
     for label, val in items:
         list_html += f"<div><div style='color:var(--muted);font-size:0.8rem;'>{label}</div><div style='color:var(--text);font-weight:600;'>{val}</div></div>"
