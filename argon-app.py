@@ -1,4 +1,4 @@
-# app.py — Argon MVP (Streamlit) — 3 мови + кастомний дизайн
+# app.py — Argon MVP (Streamlit) — 3 мови + дизайн + підказки
 import os
 import re
 import math
@@ -28,6 +28,12 @@ T = {
         "spin": "Тягну дані з Amazon...", "enter": "Введи ASIN",
         "footer": "ℹ️ Argon показує калібровані сигнали. Точне число units не показуємо — низька точність. Bucket і тренд — висока.",
         "no_key": "⚠️ Не знайдено API ключ. Додай SCRAPINGDOG_API_KEY у Secrets.",
+        "help_opp": "Підсумкова оцінка можливості зайти в товар/нішу (0-100). Враховує попит, ринок, ціну, конкуренцію.",
+        "help_demand": "Чи є попит на товар. Рахується з реальних покупок/міс та BSR.",
+        "help_comp": "Наскільки важко зайти. Більше відгуків у конкурента = важче (нижчий бал).",
+        "help_price": "Цінова привабливість. Дорожчий товар = вища потенційна маржа.",
+        "help_market": "Сила ринку в цілому — чи є тут гроші взагалі (продажі + BSR + рейтинг).",
+        "view_amazon": "🔗 Відкрити на Amazon",
     },
     "RU": {
         "tagline": "Amazon Opportunity Intelligence — вставь ASIN, получи инсайт",
@@ -44,6 +50,12 @@ T = {
         "spin": "Тяну данные с Amazon...", "enter": "Введи ASIN",
         "footer": "ℹ️ Argon показывает калиброванные сигналы. Точное число units не показываем — низкая точность. Bucket и тренд — высокая.",
         "no_key": "⚠️ Не найден API ключ. Добавь SCRAPINGDOG_API_KEY в Secrets.",
+        "help_opp": "Итоговая оценка возможности зайти в товар/нишу (0-100). Учитывает спрос, рынок, цену, конкуренцию.",
+        "help_demand": "Есть ли спрос на товар. Считается из реальных покупок/мес и BSR.",
+        "help_comp": "Насколько сложно зайти. Больше отзывов у конкурента = сложнее (ниже балл).",
+        "help_price": "Ценовая привлекательность. Дороже товар = выше потенциальная маржа.",
+        "help_market": "Сила рынка в целом — есть ли тут деньги вообще (продажи + BSR + рейтинг).",
+        "view_amazon": "🔗 Открыть на Amazon",
     },
     "EN": {
         "tagline": "Amazon Opportunity Intelligence — paste ASIN, get insight",
@@ -60,6 +72,12 @@ T = {
         "spin": "Fetching Amazon data...", "enter": "Enter ASIN",
         "footer": "ℹ️ Argon shows calibrated signals. Exact units not shown — low accuracy. Bucket & trend — high accuracy.",
         "no_key": "⚠️ API key not found. Add SCRAPINGDOG_API_KEY to Secrets.",
+        "help_opp": "Final opportunity score to enter the product/niche (0-100). Combines demand, market, price, competition.",
+        "help_demand": "Is there demand. Calculated from real monthly purchases and BSR.",
+        "help_comp": "How hard to enter. More competitor reviews = harder (lower score).",
+        "help_price": "Price attractiveness. Higher price = higher potential margin.",
+        "help_market": "Overall market strength — is there money here at all (sales + BSR + rating).",
+        "view_amazon": "🔗 View on Amazon",
     },
 }
 
@@ -72,12 +90,7 @@ st.markdown("""
     .opp-card { background: linear-gradient(135deg,#1a1a2e,#16213e); border-radius:20px;
         padding:28px; text-align:center; border:1px solid #2a2a4a; margin:20px 0; }
     .opp-num { font-size:4rem; font-weight:900; line-height:1; }
-    .score-card { background:#15151f; border-radius:14px; padding:16px; text-align:center;
-        border:1px solid #252535; }
-    .score-label { font-size:0.85rem; color:#9a9ab0; margin-bottom:6px; }
-    .score-val { font-size:2rem; font-weight:800; color:#fff; }
-    .info-card { background:#15151f; border-radius:14px; padding:20px; border:1px solid #252535;
-        height:100%; }
+    .info-card { background:#15151f; border-radius:14px; padding:20px; border:1px solid #252535; height:100%; }
     .info-card h4 { margin-top:0; color:#cdd; }
     .stButton>button { background:linear-gradient(90deg,#7b2ff7,#00d4ff); color:#fff; border:none;
         font-weight:700; border-radius:12px; padding:12px; }
@@ -229,23 +242,25 @@ if go and asin:
         s = e.calculate()
 
     st.subheader(e.title[:90])
+    st.markdown(f"[{t['view_amazon']}](https://www.amazon.com/dp/{asin})")
     if e.category_top:
         st.caption(f"📂 {e.category_top}")
 
-    # Opportunity card
+    # Opportunity card + підказка
     color = "#22c55e" if s["opportunity"] >= 70 else "#eab308" if s["opportunity"] >= 50 else "#ef4444"
     st.markdown(f"""
     <div class="opp-card">
         <div style="color:#9a9ab0;font-size:1rem;">{t['opportunity'].upper()}</div>
         <div class="opp-num" style="color:{color};">{s['opportunity']}<span style="font-size:1.5rem;color:#666;">/100</span></div>
     </div>""", unsafe_allow_html=True)
+    st.caption(f"ℹ️ {t['help_opp']}")
 
-    # 4 scores
+    # 4 scores з підказками (наведи на ℹ️)
     cols = st.columns(4)
-    scores = [(t["demand"], s["demand"]), (t["competition"], s["competition"]),
-              (t["price"], s["price"]), (t["market"], s["market"])]
-    for col, (label, val) in zip(cols, scores):
-        col.markdown(f'<div class="score-card"><div class="score-label">{label}</div><div class="score-val">{val}</div></div>', unsafe_allow_html=True)
+    cols[0].metric(t["demand"], s["demand"], help=t["help_demand"])
+    cols[1].metric(t["competition"], s["competition"], help=t["help_comp"])
+    cols[2].metric(t["price"], s["price"], help=t["help_price"])
+    cols[3].metric(t["market"], s["market"], help=t["help_market"])
 
     st.write("")
 
@@ -255,7 +270,7 @@ if go and asin:
         price_html = f"<h4>{t['price_sales']}</h4><div style='font-size:1.6rem;font-weight:800;color:#fff;'>${e.price}</div>"
         if e.old_price > 0:
             disc = round((1 - e.price / e.old_price) * 100)
-            price_html += f"<div style='color:#9a9ab0;'><s>${e.old_price}</s> <span style='color:#22c55e;'>-{disc}%</span></div>"
+            price_html += f"<div style='color:#9a9ab0;'><span style='text-decoration:line-through;'>${e.old_price}</span> <span style='color:#22c55e;'>-{disc}%</span></div>"
         if e.has_coupon:
             price_html += f"<div style='color:#f0a;margin-top:8px;'>🎟️ {t['coupon']}: {e.coupon_text}</div>"
         price_html += f"<div style='margin-top:8px;'>📦 {t['bought_mo']}: <b>{e.bought_text or t['na']}</b></div>"
