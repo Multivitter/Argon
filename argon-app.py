@@ -66,6 +66,74 @@ T = {
         "coupon": "Coupon", "bought_mo": "Bought/mo", "bsr": "BSR",
         "rating": "Rating", "reviews": "reviews", "one_star": "1★ reviews",
         "returned": "⚠️ Frequently returned",
+        "brand": "Brand", "seller": "Seller", "photos": "Photos / Videos",# app.py — Argon MVP (Streamlit) — 3 мови + дизайн + підказки
+import os
+import re
+import math
+import requests
+import streamlit as st
+
+st.set_page_config(page_title="Argon — Amazon Intelligence", page_icon="🔬", layout="centered")
+
+API_KEY = os.getenv("SCRAPINGDOG_API_KEY") or st.secrets.get("SCRAPINGDOG_API_KEY", "")
+PRODUCT_URL = "https://api.scrapingdog.com/amazon/product"
+SEARCH_URL = "https://api.scrapingdog.com/amazon/search"
+
+# ============ ПЕРЕКЛАДИ ============
+T = {
+    "UA": {
+        "tagline": "Amazon Opportunity Intelligence — встав ASIN, отримай інсайт",
+        "asin_label": "ASIN товару", "analyze": "🔍 Аналізувати",
+        "price_sales": "💰 Ціна та продажі", "reputation": "⭐ Репутація",
+        "listing": "🏷️ Лістинг", "opportunity": "Opportunity",
+        "demand": "🔥 Попит", "competition": "⚔️ Конкуренція", "price": "💵 Ціна", "market": "🏪 Ринок",
+        "coupon": "Купон", "bought_mo": "Покупок/міс", "bsr": "BSR",
+        "rating": "Рейтинг", "reviews": "відгуків", "one_star": "1★ відгуків",
+        "returned": "⚠️ Часто повертають товар",
+        "brand": "Бренд", "seller": "Продавець", "photos": "Фото / Відео",
+        "variants": "Варіантів", "aplus": "A+ контент", "organic": "Органіка",
+        "yes": "✅ так", "no": "❌ ні", "na": "н/д", "err": "❌ Не вдалось. Перевір ASIN.",
+        "spin": "Тягну дані з Amazon...", "enter": "Введи ASIN",
+        "footer": "ℹ️ Argon показує калібровані сигнали. Точне число units не показуємо — низька точність. Bucket і тренд — висока.",
+        "no_key": "⚠️ Не знайдено API ключ. Додай SCRAPINGDOG_API_KEY у Secrets.",
+        "help_opp": "Підсумкова оцінка можливості зайти в товар/нішу (0-100). Враховує попит, ринок, ціну, конкуренцію.",
+        "help_demand": "Чи є попит на товар. Рахується з реальних покупок/міс та BSR.",
+        "help_comp": "Наскільки важко зайти. Більше відгуків у конкурента = важче (нижчий бал).",
+        "help_price": "Цінова привабливість. Дорожчий товар = вища потенційна маржа.",
+        "help_market": "Сила ринку в цілому — чи є тут гроші взагалі (продажі + BSR + рейтинг).",
+        "view_amazon": "🔗 Відкрити на Amazon",
+    },
+    "RU": {
+        "tagline": "Amazon Opportunity Intelligence — вставь ASIN, получи инсайт",
+        "asin_label": "ASIN товара", "analyze": "🔍 Анализировать",
+        "price_sales": "💰 Цена и продажи", "reputation": "⭐ Репутация",
+        "listing": "🏷️ Листинг", "opportunity": "Opportunity",
+        "demand": "🔥 Спрос", "competition": "⚔️ Конкуренция", "price": "💵 Цена", "market": "🏪 Рынок",
+        "coupon": "Купон", "bought_mo": "Покупок/мес", "bsr": "BSR",
+        "rating": "Рейтинг", "reviews": "отзывов", "one_star": "1★ отзывов",
+        "returned": "⚠️ Часто возвращают товар",
+        "brand": "Бренд", "seller": "Продавец", "photos": "Фото / Видео",
+        "variants": "Вариантов", "aplus": "A+ контент", "organic": "Органика",
+        "yes": "✅ да", "no": "❌ нет", "na": "н/д", "err": "❌ Не удалось. Проверь ASIN.",
+        "spin": "Тяну данные с Amazon...", "enter": "Введи ASIN",
+        "footer": "ℹ️ Argon показывает калиброванные сигналы. Точное число units не показываем — низкая точность. Bucket и тренд — высокая.",
+        "no_key": "⚠️ Не найден API ключ. Добавь SCRAPINGDOG_API_KEY в Secrets.",
+        "help_opp": "Итоговая оценка возможности зайти в товар/нишу (0-100). Учитывает спрос, рынок, цену, конкуренцию.",
+        "help_demand": "Есть ли спрос на товар. Считается из реальных покупок/мес и BSR.",
+        "help_comp": "Насколько сложно зайти. Больше отзывов у конкурента = сложнее (ниже балл).",
+        "help_price": "Ценовая привлекательность. Дороже товар = выше потенциальная маржа.",
+        "help_market": "Сила рынка в целом — есть ли тут деньги вообще (продажи + BSR + рейтинг).",
+        "view_amazon": "🔗 Открыть на Amazon",
+    },
+    "EN": {
+        "tagline": "Amazon Opportunity Intelligence — paste ASIN, get insight",
+        "asin_label": "Product ASIN", "analyze": "🔍 Analyze",
+        "price_sales": "💰 Price & Sales", "reputation": "⭐ Reputation",
+        "listing": "🏷️ Listing", "opportunity": "Opportunity",
+        "demand": "🔥 Demand", "competition": "⚔️ Competition", "price": "💵 Price", "market": "🏪 Market",
+        "coupon": "Coupon", "bought_mo": "Bought/mo", "bsr": "BSR",
+        "rating": "Rating", "reviews": "reviews", "one_star": "1★ reviews",
+        "returned": "⚠️ Frequently returned",
         "brand": "Brand", "seller": "Seller", "photos": "Photos / Videos",
         "variants": "Variants", "aplus": "A+ content", "organic": "Organic rank",
         "yes": "✅ yes", "no": "❌ no", "na": "n/a", "err": "❌ Failed. Check ASIN.",
@@ -81,19 +149,57 @@ T = {
     },
 }
 
-# ============ СТИЛІ ============
-st.markdown("""
+# ============ ТЕМИ / PALETTES ============
+PALETTES = {
+    "dark": {
+        "bg": "#0a0a0f", "text": "#f2f2f7", "muted": "#9a9ab0",
+        "card_bg": "#15151f", "card_border": "#252535",
+        "opp_bg": "linear-gradient(135deg,#1a1a2e,#16213e)", "opp_border": "#2a2a4a",
+        "heading": "#dfe6e6", "input_bg": "#15151f",
+    },
+    "light": {
+        "bg": "#f6f7fb", "text": "#0f172a", "muted": "#5b6472",
+        "card_bg": "#ffffff", "card_border": "#e2e8f0",
+        "opp_bg": "linear-gradient(135deg,#ffffff,#eef2ff)", "opp_border": "#dbe2f0",
+        "heading": "#334155", "input_bg": "#ffffff",
+    },
+}
+
+
+def inject_css(p):
+    st.markdown(f"""
 <style>
-    .stApp { background: #0a0a0f; }
-    .argon-title { font-size: 3rem; font-weight: 800; background: linear-gradient(90deg,#7b2ff7,#00d4ff);
-        -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom:0; }
-    .opp-card { background: linear-gradient(135deg,#1a1a2e,#16213e); border-radius:20px;
-        padding:28px; text-align:center; border:1px solid #2a2a4a; margin:20px 0; }
-    .opp-num { font-size:4rem; font-weight:900; line-height:1; }
-    .info-card { background:#15151f; border-radius:14px; padding:20px; border:1px solid #252535; height:100%; }
-    .info-card h4 { margin-top:0; color:#cdd; }
-    .stButton>button { background:linear-gradient(90deg,#7b2ff7,#00d4ff); color:#fff; border:none;
-        font-weight:700; border-radius:12px; padding:12px; }
+    .stApp {{
+        --text:{p['text']}; --muted:{p['muted']};
+        --card-bg:{p['card_bg']}; --card-border:{p['card_border']};
+        --opp-bg:{p['opp_bg']}; --opp-border:{p['opp_border']};
+        --heading:{p['heading']}; --input-bg:{p['input_bg']};
+        background:{p['bg']}; color:var(--text);
+    }}
+    /* нативні віджети Streamlit — читабельний колір тексту в обох темах */
+    .stApp [data-testid="stMarkdownContainer"],
+    .stApp h1,.stApp h2,.stApp h3,.stApp h4,.stApp h5,
+    .stApp p,.stApp li,.stApp label,
+    .stApp [data-testid="stWidgetLabel"] p,
+    .stApp [data-testid="stMetricValue"] {{ color:var(--text) !important; }}
+    .stApp [data-testid="stCaptionContainer"],
+    .stApp [data-testid="stCaptionContainer"] p,
+    .stApp [data-testid="stMetricLabel"],
+    .stApp [data-testid="stMetricLabel"] p {{ color:var(--muted) !important; }}
+    .stApp .stTextInput input {{ background:var(--input-bg) !important; color:var(--text) !important;
+        border:1px solid var(--card-border) !important; }}
+    .stApp [data-baseweb="select"] > div {{ background:var(--input-bg) !important;
+        border-color:var(--card-border) !important; }}
+    .argon-title {{ font-size:3rem; font-weight:800; background:linear-gradient(90deg,#7b2ff7,#00d4ff);
+        -webkit-background-clip:text; -webkit-text-fill-color:transparent; margin-bottom:0; }}
+    .opp-card {{ background:var(--opp-bg); border-radius:20px; padding:28px; text-align:center;
+        border:1px solid var(--opp-border); margin:20px 0; }}
+    .opp-num {{ font-size:4rem; font-weight:900; line-height:1; }}
+    .info-card {{ background:var(--card-bg); border-radius:14px; padding:20px;
+        border:1px solid var(--card-border); height:100%; }}
+    .info-card h4 {{ margin-top:0; color:var(--heading); }}
+    .stButton>button {{ background:linear-gradient(90deg,#7b2ff7,#00d4ff); color:#ffffff; border:none;
+        font-weight:700; border-radius:12px; padding:12px; }}
 </style>
 """, unsafe_allow_html=True)
 
@@ -218,11 +324,16 @@ class OpportunityEngine:
 
 
 # ============ UI ============
-col_t, col_l = st.columns([3, 1])
+col_t, col_th, col_l = st.columns([3, 1, 1])
 with col_t:
     st.markdown('<p class="argon-title">🔬 Argon</p>', unsafe_allow_html=True)
+with col_th:
+    _theme_label = st.selectbox("🎨", ["🌙 Dark", "☀️ Light"], label_visibility="collapsed")
+    theme = "light" if _theme_label.startswith("☀️") else "dark"
 with col_l:
     lang = st.selectbox("🌐", ["UA", "RU", "EN"], label_visibility="collapsed")
+
+inject_css(PALETTES[theme])
 
 t = T[lang]
 st.caption(t["tagline"])
@@ -250,8 +361,8 @@ if go and asin:
     color = "#22c55e" if s["opportunity"] >= 70 else "#eab308" if s["opportunity"] >= 50 else "#ef4444"
     st.markdown(f"""
     <div class="opp-card">
-        <div style="color:#9a9ab0;font-size:1rem;">{t['opportunity'].upper()}</div>
-        <div class="opp-num" style="color:{color};">{s['opportunity']}<span style="font-size:1.5rem;color:#666;">/100</span></div>
+        <div style="color:var(--muted);font-size:1rem;">{t['opportunity'].upper()}</div>
+        <div class="opp-num" style="color:{color};">{s['opportunity']}<span style="font-size:1.5rem;color:var(--muted);">/100</span></div>
     </div>""", unsafe_allow_html=True)
     st.caption(f"ℹ️ {t['help_opp']}")
 
@@ -267,10 +378,10 @@ if go and asin:
     # Price & Reputation
     ca, cb = st.columns(2)
     with ca:
-        price_html = f"<h4>{t['price_sales']}</h4><div style='font-size:1.6rem;font-weight:800;color:#fff;'>${e.price}</div>"
+        price_html = f"<h4>{t['price_sales']}</h4><div style='font-size:1.6rem;font-weight:800;color:var(--text);'>${e.price}</div>"
         if e.old_price > 0:
             disc = round((1 - e.price / e.old_price) * 100)
-            price_html += f"<div style='color:#9a9ab0;'><span style='text-decoration:line-through;'>${e.old_price}</span> <span style='color:#22c55e;'>-{disc}%</span></div>"
+            price_html += f"<div style='color:var(--muted);'><span style='text-decoration:line-through;'>${e.old_price}</span> <span style='color:#22c55e;'>-{disc}%</span></div>"
         if e.has_coupon:
             price_html += f"<div style='color:#f0a;margin-top:8px;'>🎟️ {t['coupon']}: {e.coupon_text}</div>"
         price_html += f"<div style='margin-top:8px;'>📦 {t['bought_mo']}: <b>{e.bought_text or t['na']}</b></div>"
@@ -279,8 +390,8 @@ if go and asin:
         st.markdown(f'<div class="info-card">{price_html}</div>', unsafe_allow_html=True)
     with cb:
         rep_html = f"<h4>{t['reputation']}</h4>"
-        rep_html += f"<div style='font-size:1.6rem;font-weight:800;color:#fff;'>{e.rating}/5</div>"
-        rep_html += f"<div style='color:#9a9ab0;'>{e.reviews:,} {t['reviews']}</div>"
+        rep_html += f"<div style='font-size:1.6rem;font-weight:800;color:var(--text);'>{e.rating}/5</div>"
+        rep_html += f"<div style='color:var(--muted);'>{e.reviews:,} {t['reviews']}</div>"
         rep_html += f"<div style='margin-top:8px;'>{t['one_star']}: <b>{e.one_star_pct}%</b></div>"
         if e.frequently_returned:
             rep_html += f"<div style='color:#ef4444;margin-top:8px;'>{t['returned']}</div>"
@@ -299,7 +410,7 @@ if go and asin:
         (t["organic"], f"#{e.organic_pos or t['na']}"),
     ]
     for label, val in items:
-        list_html += f"<div><div style='color:#9a9ab0;font-size:0.8rem;'>{label}</div><div style='color:#fff;font-weight:600;'>{val}</div></div>"
+        list_html += f"<div><div style='color:var(--muted);font-size:0.8rem;'>{label}</div><div style='color:var(--text);font-weight:600;'>{val}</div></div>"
     list_html += "</div>"
     st.markdown(f'<div class="info-card">{list_html}</div>', unsafe_allow_html=True)
 
