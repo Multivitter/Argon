@@ -144,14 +144,52 @@ def parse_number(value):
     m = re.search(r"\d[\d,]*\.?\d*", str(value).replace(",", ""))
     return float(m.group()) if m else 0.0
 
+# TLD маркетплейсу Amazon → (scrapingdog domain, proxy country)
+MARKETPLACES = {
+    "com":    ("com",    "us"),
+    "co.uk":  ("co.uk",  "gb"),
+    "de":     ("de",     "de"),
+    "es":     ("es",     "es"),
+    "fr":     ("fr",     "fr"),
+    "it":     ("it",     "it"),
+    "nl":     ("nl",     "nl"),
+    "se":     ("se",     "se"),
+    "pl":     ("pl",     "pl"),
+    "ca":     ("ca",     "ca"),
+    "com.mx": ("com.mx", "mx"),
+    "com.br": ("com.br", "br"),
+    "co.jp":  ("co.jp",  "jp"),
+    "in":     ("in",     "in"),
+    "com.au": ("com.au", "au"),
+    "sg":     ("sg",     "sg"),
+    "ae":     ("ae",     "ae"),
+    "sa":     ("sa",     "sa"),
+    "com.tr": ("com.tr", "tr"),
+}
+DEFAULT_MARKET = ("com", "us")
+
+def extract_asin(raw):
+    """Витягує ASIN + маркетплейс з голого вводу або з посилання на товар Amazon.
+    Повертає (asin, domain, country). Для голого ASIN — дефолтний .com/us."""
+    s = (raw or "").strip().upper()
+    # маркетплейс з домену amazon.<tld> у посиланні
+    m_tld = re.search(r"AMAZON\.([A-Z.]+?)(?:[:/?#]|$)", s)
+    domain, country = MARKETPLACES.get(m_tld.group(1).lower(), DEFAULT_MARKET) if m_tld else DEFAULT_MARKET
+    # ASIN: /dp/ASIN, /gp/product/ASIN, /gp/aw/d/ASIN
+    m = re.search(r"/(?:DP|GP/PRODUCT|GP/AW/D)/([A-Z0-9]{10})", s)
+    if m: return m.group(1), domain, country
+    # інакше — перша окрема послідовність з 10 літер/цифр
+    m = re.search(r"\b([A-Z0-9]{10})\b", s)
+    return (m.group(1) if m else ""), domain, country
+
 @st.cache_data(ttl=3600)
-def get_product(asin):
-    r = requests.get(PRODUCT_URL, params={"api_key": API_KEY, "domain": "com", "asin": asin, "country": "us"}, timeout=60)
+def get_product(asin, domain="com", country="us"):
+    r = requests.get(PRODUCT_URL, params={"api_key": API_KEY, "domain": domain, "asin": asin, "country": country}, timeout=60)
     return r.json() if r.status_code == 200 else None
 
 @st.cache_data(ttl=3600)
-def get_search(asin):
-    r = requests.get(SEARCH_URL, params={"api_key": API_KEY, "query": asin, "domain": "com", "page": 1, "country": "us", "premium": "false"}, timeout=60)
+def get_search(asin, domain="com", country="us"):
+    r = requests.get(SEARCH_URL, params={"api_key": API_KEY, "query": asin, "domain": domain, "page": 1, "country": country, "premium": "false"}, timeout=60)
     if r.status_code == 200:
         results = r.json().get("results", [])
         for item in results:
@@ -304,22 +342,23 @@ inject_css(PALETTES[theme])
 t = T[lang]
 st.caption(t["tagline"])
 
-asin = st.text_input(t["asin_label"], value="B07XGMHHT8", max_chars=10).strip().upper()
+_raw = st.text_input(t["asin_label"], value="", placeholder="B07XGMHHT8", key="asin_input")
+asin, market_domain, market_country = extract_asin(_raw)
 go = st.button(t["analyze"], use_container_width=True)
 
 if go and asin:
     if not API_KEY:
         st.error(t["no_key"]); st.stop()
     with st.spinner(t["spin"]):
-        product = get_product(asin)
+        product = get_product(asin, market_domain, market_country)
         if not product:
             st.error(t["err"]); st.stop()
-        search = get_search(asin)
+        search = get_search(asin, market_domain, market_country)
         e = OpportunityEngine(product, search)
         s = e.calculate()
 
     st.markdown(f'<div class="product-title">{e.title[:120]}...</div>', unsafe_allow_html=True)
-    st.markdown(f"[{t['view_amazon']}](https://www.amazon.com/dp/{asin})")
+    st.markdown(f"[{t['view_amazon']}](https://www.amazon.{market_domain}/dp/{asin})")
     if e.category_top:
         st.caption(f"📂 {e.category_top}")
     st.divider()
